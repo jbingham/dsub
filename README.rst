@@ -1,3 +1,4 @@
+==========
 Disclaimer
 ==========
 
@@ -81,7 +82,7 @@ Getting started on Google Cloud
     The dsub logs and output files will be written to a bucket. Create a
     bucket using the `storage browser <https://cloud.google.com/storage/browser?project=>`_
     or run the command-line utility `gsutil <https://cloud.google.com/storage/docs/gsutil>`_, included in
-    the Cloud SDK.
+    the Cloud SDK.::
 
         gsutil mb gs://my-bucket
 
@@ -117,7 +118,7 @@ Defining what code to run
 You can provide a shell command directly in the dsub command-line, as in the
 hello example above.
 
-You can also save your script to a file, like ``hello.sh``. Then you can run:
+You can also save your script to a file, like ``hello.sh``. Then you can run::
 
     dsub \
         --project my-cloud-project \
@@ -133,7 +134,7 @@ Selecting a Docker image
 ------------------------
 
 By default, dsub uses a stock Ubuntu image. You can change the image
-by passing the ``--image`` flag.
+by passing the ``--image`` flag.::
 
     dsub \
         --project my-cloud-project \
@@ -145,7 +146,7 @@ by passing the ``--image`` flag.
 Passing parameters to your script
 ---------------------------------
 
-You can pass environment variables to your script using the ``--env`` flag.
+You can pass environment variables to your script using the ``--env`` flag.::
 
     dsub \
         --project my-cloud-project \
