@@ -161,10 +161,10 @@ your Docker container runs.
 Your script or command can reference the variable like any other Linux
 environment variable, as ``${MESSAGE}``.
 
-** Be sure to enclose your command string in single quotes and not double
+**Be sure to enclose your command string in single quotes and not double
 quotes. If you use double quotes, the command will be expanded in your local
 shell before being passed to dsub. For more information on using the
-``--command`` flag, see `Scripts, Commands, and Docker <docs/code.md>`_ **
+``--command`` flag, see `Scripts, Commands, and Docker <docs/code.md>`_**
 
 To set multiple environment variables, you can repeat the flag::
 
@@ -203,7 +203,7 @@ by:
 * Uploading the files to Google Cloud Storage
 
 To upload the files to Google Cloud Storage, you can use the
-`storage browser <https://console.cloud.google.com/storage/browser?project=>` or
+`storage browser <https://console.cloud.google.com/storage/browser?project=>`_ or
 `gsutil <https://cloud.google.com/storage/docs/gsutil>`_. You can also run on data
 that’s public or shared with your service account, an email address that you
 can find in the `Google Cloud Console <https://console.cloud.google.com>`_.
@@ -274,7 +274,7 @@ a tab-separated values (TSV) file containing the variables,
 inputs, and outputs for each task, and then call ``dsub`` once.
 The result will be a single ``job-id`` with multiple tasks. The tasks will
 be scheduled and run independently, but can be
-`monitored <#Viewing job status>`_ and `deleted <#Deleting a job>`_ as a group.
+monitored (see `Viewing job status`_) and deleted (see `Deleting a job`_) as a group.
 
 Tasks file format
 -----------------
@@ -377,16 +377,17 @@ To delete all running jobs for the current user::
 
     ddel --project my-cloud-project --jobs "*"
 
-## What next?
+What next?
+==========
 
 * See the examples:
-  * `Custom scripts <examples/custom_scripts>`_
-  * `Decompress files <examples/decompress>`_
-  * `FastQC <examples/fastqc>`_
-  * `Samtools index <examples/samtools>`_
+    * `Custom scripts <examples/custom_scripts>`_
+    * `Decompress files <examples/decompress>`_
+    * `FastQC <examples/fastqc>`_
+    * `Samtools index <examples/samtools>`_
 
 * See more documentation for:
-  * `Scripts, Commands, and Docker <docs/code.md>`_
-  * `Input and Output File Handling <docs/input_output.md>`_
-  * `Job Control <docs/job_control.md>`_
+    * `Scripts, Commands, and Docker <docs/code.md>`_
+    * `Input and Output File Handling <docs/input_output.md>`_
+    * `Job Control <docs/job_control.md>`_
   * `Checking Status and Troubleshooting Jobs <docs/troubleshooting.md>`_
