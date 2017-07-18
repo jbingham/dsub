@@ -1,10 +1,13 @@
-### Disclaimer
+Disclaimer
+==========
 
 This is not an official Google product.
 
-# dsub: simple batch jobs with Docker
+dsub: simple batch jobs with Docker
+###################################
 
-## Overview
+Overview
+========
 
 dsub is a command-line tool that makes it easy to submit and run batch scripts
 in the cloud. dsub uses Docker, which makes it easy to package up portable
@@ -21,7 +24,8 @@ Grid Engine, Slurm, Amazon Batch, and Azure Batch.
 If others find dsub useful, our hope is to contribute dsub to an open-source
 foundation for use by the wider batch computing community.
 
-## Getting started
+Getting started
+===============
 
 1.  Create and activate a Python virtualenv (optional but strongly recommended).
 
@@ -29,62 +33,64 @@ foundation for use by the wider batch computing community.
         virtualenv dsub_libs
         source dsub_libs/bin/activate
 
-1.  Clone this repository.
+2.  Clone this repository.
 
         git clone https://github.com/googlegenomics/dsub
         cd dsub
 
-1.  Install dsub (this will also install the dependencies)
+3.  Install dsub (this will also install the dependencies)
 
         python setup.py install
 
-1.  Set up Bash tab completion (optional).
+4.  Set up Bash tab completion (optional).
 
         source bash_tab_complete
 
-1.  Verify the installation by running:
+5.  Verify the installation by running:
 
         dsub --help
 
-1.  (Optional) [Install Docker](https://docs.docker.com/engine/installation/).
+6.  (Optional) `Install Docker <https://docs.docker.com/engine/installation/>`_.
 
     This is necessary only if you're going to create your own Docker images or
     use the `local` provider.
 
-### Getting started on Google Cloud
+Getting started on Google Cloud
+-------------------------------
 
 1.  Sign up for a Google Cloud Platform account and
-    [create a project](https://console.cloud.google.com/project?).
+    `create a project <https://console.cloud.google.com/project?>`_.
 
-1.  [Enable the APIs](https://console.cloud.google.com/flows/enableapi?apiid=genomics,storage_component,compute_component&redirect=https://console.cloud.google.com).
+2.  `Enable the APIs <https://console.cloud.google.com/flows/enableapi?apiid=genomics,storage_component,compute_component&redirect=https://console.cloud.google.com>`_.
 
-1.  [Install the Google Cloud SDK](https://cloud.google.com/sdk/) and run
+3.  `Install the Google Cloud SDK <https://cloud.google.com/sdk/>`_ and run
 
         gcloud init
 
     This will set up your default project and grant credentials to the Google
-    Cloud SDK. Now provide [credentials](https://developers.google.com/identity/protocols/application-default-credentials)
+    Cloud SDK. Now provide `credentials <https://developers.google.com/identity/protocols/application-default-credentials>`_
     so dsub can call Google APIs:
 
         gcloud auth application-default login
 
-1.  Create a [Google Cloud Storage](https://cloud.google.com/storage) bucket.
+4.  Create a `Google Cloud Storage <https://cloud.google.com/storage>`_ bucket.
 
     The dsub logs and output files will be written to a bucket. Create a
-    bucket using the [storage browser](https://cloud.google.com/storage/browser?project=)
-    or run the command-line utility [gsutil](https://cloud.google.com/storage/docs/gsutil), included in
+    bucket using the `storage browser <https://cloud.google.com/storage/browser?project=>`_
+    or run the command-line utility `gsutil <https://cloud.google.com/storage/docs/gsutil>`_, included in
     the Cloud SDK.
 
         gsutil mb gs://my-bucket
 
     Change `my-bucket` to a unique name that follows the
-    [bucket-naming conventions](https://cloud.google.com/storage/docs/bucket-naming).
+    `bucket-naming conventions <https://cloud.google.com/storage/docs/bucket-naming>`_.
 
     (By default, the bucket will be in the US, but you can change or
-    refine the [location](https://cloud.google.com/storage/docs/bucket-locations) setting with the
+    refine the `location <https://cloud.google.com/storage/docs/bucket-locations>`_ setting with the
     `-l` option.)
 
-## Running a job
+Running a job
+=============
 
 Here's the simplest example:
 
@@ -102,7 +108,8 @@ The output of the script command will be written to the logging folder.
 
 The following sections show how to run more complex jobs.
 
-### Defining what code to run
+Defining what code to run
+-------------------------
 
 You can provide a shell command directly in the dsub command-line, as in the
 hello example above.
@@ -119,7 +126,8 @@ If your script has dependencies that are not stored in your Docker image,
 you can transfer them to the local disk. See the instructions below for
 working with input and output files and folders.
 
-### Selecting a Docker image
+Selecting a Docker image
+------------------------
 
 By default, dsub uses a stock Ubuntu image. You can change the image
 by passing the `--image` flag.
@@ -131,7 +139,8 @@ by passing the `--image` flag.
         --image ubuntu:16.04 \
         --script hello.sh
 
-### Passing parameters to your script
+Passing parameters to your script
+---------------------------------
 
 You can pass environment variables to your script using the `--env` flag.
 
@@ -151,7 +160,7 @@ environment variable, as `${MESSAGE}`.
 **Be sure to enclose your command string in single quotes and not double
 quotes. If you use double quotes, the command will be expanded in your local
 shell before being passed to dsub. For more information on using the
-`--command` flag, see [Scripts, Commands, and Docker](docs/code.md)**
+`--command` flag, see `Scripts, Commands, and Docker <docs/code.md>`_**
 
 To set multiple environment variables, you can repeat the flag:
 
@@ -162,7 +171,8 @@ You can also set multiple variables, space-delimited, with a single flag:
 
     --env VAR1=value1 VAR2=value2
 
-### Working with input and output files and folders
+Working with input and output files and folders
+-----------------------------------------------
 
 dsub mimics the behavior of a shared file system using cloud storage
 bucket paths for input and output files and folders. You specify
@@ -172,9 +182,10 @@ the cloud storage bucket path. Paths can be:
 * folder paths like `gs://my-bucket/my-folder`
 * wildcard paths like `gs://my-bucket/my-folder/*`
 
-See the [inputs and outputs](docs/input_output.md) documentation for more details.
+See the `inputs and outputs <docs/input_output.md>`_ documentation for more details.
 
-### Transferring input files to a Google Cloud Storage bucket.
+Transferring input files to a Google Cloud Storage bucket
+---------------------------------------------------------
 
 If your script expects to read local input files that are not already
 contained within your Docker image, the files must be available in Google
@@ -183,17 +194,18 @@ Cloud Storage.
 If your script has dependent files, you can make them available to your script
 by:
 
- * Building a private Docker image with the dependent files and publishing the
-   image to a public site, or privately to Google Container Registry
- * Uploading the files to Google Cloud Storage
+* Building a private Docker image with the dependent files and publishing the
+  image to a public site, or privately to Google Container Registry
+* Uploading the files to Google Cloud Storage
 
 To upload the files to Google Cloud Storage, you can use the
-[storage browser](https://console.cloud.google.com/storage/browser?project=) or
-[gsutil](https://cloud.google.com/storage/docs/gsutil). You can also run on data
+`storage browser <https://console.cloud.google.com/storage/browser?project=>` or
+`gsutil <https://cloud.google.com/storage/docs/gsutil>`_. You can also run on data
 that’s public or shared with your service account, an email address that you
-can find in the [Google Cloud Console](https://console.cloud.google.com).
+can find in the `Google Cloud Console <https://console.cloud.google.com>`_.
 
-#### Files
+Files
+-----
 
 To specify input and output files, use the `--input` and `--output` flags:
 
@@ -214,7 +226,8 @@ The output file will be written to local disk at the location given by
 using the environment variable. After the script completes, the output file
 will be copied to the bucket path `gs://my-bucket/my-output-file`.
 
-#### Folders
+Folders
+-------
 
 To copy folders rather than files, use the `--input-recursive` or
 `output-recursive` flags:
@@ -226,7 +239,8 @@ To copy folders rather than files, use the `--input-recursive` or
         --input-recursive FOLDER=gs://my-bucket/my-folder \
         --command 'find ${FOLDER} -name "foo*"'
 
-### Setting resource requirements
+Setting resource requirements
+-----------------------------
 
 By default, dsub launches a VM with a single CPU core, a default number of
 GB of memory (3.75 GB on Google Compute Engine), and a default disk size
@@ -241,9 +255,10 @@ To change the disk size, use the `--disk-size` flag.
 Before you choose especially large or unusual values, be sure to check the
 available VM instance types and maximum disk size. On Google Cloud, the
 machine type will be selected from the best matching
-[predefined machine types](https://cloud.google.com/compute/docs/machine-types#predefined_machine_types).
+`predefined machine types <https://cloud.google.com/compute/docs/machine-types#predefined_machine_types>`_.
 
-### Submitting a batch job
+Submitting a batch job
+----------------------
 
 Each of the examples above has demonstrated submitting a single task with
 a single set of variables, inputs, and outputs. If you have a batch of inputs
@@ -255,9 +270,10 @@ a tab-separated values (TSV) file containing the variables,
 inputs, and outputs for each task, and then call `dsub` once.
 The result will be a single `job-id` with multiple tasks. The tasks will
 be scheduled and run independently, but can be
-[monitored](#viewing-job-status) and [deleted](#deleting-a-job) as a group.
+`monitored <#Viewing job status>`_ and `deleted <#Deleting a job>`_ as a group.
 
-#### Tasks file format
+Tasks file format
+-----------------
 
 The first line of the TSV file specifies the names and types of the
 parameters. For example:
@@ -272,7 +288,8 @@ the names of environment variables. This example is equivalent to the previous:
 Each addition line in the file should provide the variable, input, and output
 values for each task. Each line represents the values for a separate task.
 
-#### Tasks parameter
+Tasks parameter
+---------------
 
 Pass the TSV file to dsub using the `--tasks` parameter. This parameter
 accepts both the file path and optionally a range of tasks to process.
@@ -300,8 +317,8 @@ The task range values can take any of the following forms:
 
 ### Job control
 
-It's possible to wait for a job to complete before starting another, see [job
-control with dsub](docs/job_control.md).
+It's possible to wait for a job to complete before starting another, see `job
+control with dsub <docs/job_control.md>`_.
 
 ### Viewing job status
 
@@ -360,13 +377,13 @@ To delete all running jobs for the current user:
 ## What next?
 
 * See the examples:
-  * [Custom scripts](examples/custom_scripts)
-  * [Decompress files](examples/decompress)
-  * [FastQC](examples/fastqc)
-  * [Samtools index](examples/samtools)
+  * `Custom scripts <examples/custom_scripts>`_
+  * `Decompress files <examples/decompress>`_
+  * `FastQC <examples/fastqc>`_
+  * `Samtools index <examples/samtools>`_
 
 * See more documentation for:
-  * [Scripts, Commands, and Docker](docs/code.md)
-  * [Input and Output File Handling](docs/input_output.md)
-  * [Job Control](docs/job_control.md)
-  * [Checking Status and Troubleshooting Jobs](docs/troubleshooting.md)
+  * `Scripts, Commands, and Docker <docs/code.md>`_
+  * `Input and Output File Handling <docs/input_output.md>`_
+  * `Job Control <docs/job_control.md>`_
+  * `Checking Status and Troubleshooting Jobs <docs/troubleshooting.md>`_
