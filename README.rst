@@ -3,8 +3,11 @@ Disclaimer
 
 This is not an official Google product.
 
+===================================
 dsub: simple batch jobs with Docker
-###################################
+===================================
+
+.. contents::
 
 Overview
 ========
@@ -27,33 +30,33 @@ foundation for use by the wider batch computing community.
 Getting started
 ===============
 
-1.  Create and activate a Python virtualenv (optional but strongly recommended).
+1.  Create and activate a Python virtualenv (optional but strongly recommended).::
 
         # (You can do this in a directory of your choosing.)
         virtualenv dsub_libs
         source dsub_libs/bin/activate
 
-2.  Clone this repository.
+2.  Clone this repository.::
 
         git clone https://github.com/googlegenomics/dsub
         cd dsub
 
-3.  Install dsub (this will also install the dependencies)
+3.  Install dsub (this will also install the dependencies).::
 
         python setup.py install
 
-4.  Set up Bash tab completion (optional).
+4.  Set up Bash tab completion (optional).::
 
         source bash_tab_complete
 
-5.  Verify the installation by running:
+5.  Verify the installation by running::
 
         dsub --help
 
 6.  (Optional) `Install Docker <https://docs.docker.com/engine/installation/>`_.
 
     This is necessary only if you're going to create your own Docker images or
-    use the `local` provider.
+    use the ``local`` provider.
 
 Getting started on Google Cloud
 -------------------------------
@@ -82,17 +85,17 @@ Getting started on Google Cloud
 
         gsutil mb gs://my-bucket
 
-    Change `my-bucket` to a unique name that follows the
+    Change ``my-bucket`` to a unique name that follows the
     `bucket-naming conventions <https://cloud.google.com/storage/docs/bucket-naming>`_.
 
     (By default, the bucket will be in the US, but you can change or
     refine the `location <https://cloud.google.com/storage/docs/bucket-locations>`_ setting with the
-    `-l` option.)
+    ``-l`` option.)
 
 Running a job
 =============
 
-Here's the simplest example:
+Here's the simplest example::
 
     dsub \
         --project my-cloud-project \
@@ -100,7 +103,7 @@ Here's the simplest example:
         --logging gs://my-bucket/logs \
         --command 'echo hello'
 
-Change `my-cloud-project` to your Google Cloud project, and `my-bucket` to
+Change ``my-cloud-project`` to your Google Cloud project, and ``my-bucket`` to
 the bucket you created above.
 
 After running dsub, the output will be a server-generated job id.
@@ -114,7 +117,7 @@ Defining what code to run
 You can provide a shell command directly in the dsub command-line, as in the
 hello example above.
 
-You can also save your script to a file, like `hello.sh`. Then you can run:
+You can also save your script to a file, like ``hello.sh``. Then you can run:
 
     dsub \
         --project my-cloud-project \
@@ -130,7 +133,7 @@ Selecting a Docker image
 ------------------------
 
 By default, dsub uses a stock Ubuntu image. You can change the image
-by passing the `--image` flag.
+by passing the ``--image`` flag.
 
     dsub \
         --project my-cloud-project \
@@ -142,7 +145,7 @@ by passing the `--image` flag.
 Passing parameters to your script
 ---------------------------------
 
-You can pass environment variables to your script using the `--env` flag.
+You can pass environment variables to your script using the ``--env`` flag.
 
     dsub \
         --project my-cloud-project \
@@ -151,23 +154,23 @@ You can pass environment variables to your script using the `--env` flag.
         --env MESSAGE=hello \
         --command 'echo ${MESSAGE}'
 
-The environment variable `MESSAGE` will be assigned the value `hello` when
+The environment variable ``MESSAGE`` will be assigned the value ``hello`` when
 your Docker container runs.
 
 Your script or command can reference the variable like any other Linux
-environment variable, as `${MESSAGE}`.
+environment variable, as ``${MESSAGE}``.
 
-**Be sure to enclose your command string in single quotes and not double
+** Be sure to enclose your command string in single quotes and not double
 quotes. If you use double quotes, the command will be expanded in your local
 shell before being passed to dsub. For more information on using the
-`--command` flag, see `Scripts, Commands, and Docker <docs/code.md>`_**
+``--command`` flag, see `Scripts, Commands, and Docker <docs/code.md>`_ **
 
-To set multiple environment variables, you can repeat the flag:
+To set multiple environment variables, you can repeat the flag::
 
     --env VAR1=value1 \
     --env VAR2=value2
 
-You can also set multiple variables, space-delimited, with a single flag:
+You can also set multiple variables, space-delimited, with a single flag::
 
     --env VAR1=value1 VAR2=value2
 
@@ -178,9 +181,9 @@ dsub mimics the behavior of a shared file system using cloud storage
 bucket paths for input and output files and folders. You specify
 the cloud storage bucket path. Paths can be:
 
-* file paths like `gs://my-bucket/my-file`
-* folder paths like `gs://my-bucket/my-folder`
-* wildcard paths like `gs://my-bucket/my-folder/*`
+* file paths like ``gs://my-bucket/my-file``
+* folder paths like ``gs://my-bucket/my-folder``
+* wildcard paths like ``gs://my-bucket/my-folder/*``
 
 See the `inputs and outputs <docs/input_output.md>`_ documentation for more details.
 
@@ -207,7 +210,7 @@ can find in the `Google Cloud Console <https://console.cloud.google.com>`_.
 Files
 -----
 
-To specify input and output files, use the `--input` and `--output` flags:
+To specify input and output files, use the ``--input`` and ``--output`` flags::
 
     dsub \
         --project my-cloud-project \
@@ -217,20 +220,20 @@ To specify input and output files, use the `--input` and `--output` flags:
         --output OUTPUT_FILE=gs://my-bucket/my-output-file \
         --command 'cat ${INPUT_FILE} > ${OUTPUT_FILE}'
 
-The input file will be copied from `gs://my-bucket/my-input-file` to a local
-path given by the environment variable `${INPUT_FILE}`. Inside your script, you
+The input file will be copied from ``gs://my-bucket/my-input-file`` to a local
+path given by the environment variable ``${INPUT_FILE}``. Inside your script, you
 can reference the local file path using the environment variable.
 
 The output file will be written to local disk at the location given by
-`${OUTPUT_FILE}`. Inside your script, you can reference the local file path
+``${OUTPUT_FILE}``. Inside your script, you can reference the local file path
 using the environment variable. After the script completes, the output file
-will be copied to the bucket path `gs://my-bucket/my-output-file`.
+will be copied to the bucket path ``gs://my-bucket/my-output-file``.
 
 Folders
 -------
 
-To copy folders rather than files, use the `--input-recursive` or
-`output-recursive` flags:
+To copy folders rather than files, use the ``--input-recursive`` or
+``--output-recursive`` flags::
 
     dsub \
         --project my-cloud-project \
@@ -246,11 +249,11 @@ By default, dsub launches a VM with a single CPU core, a default number of
 GB of memory (3.75 GB on Google Compute Engine), and a default disk size
 (200 GB).
 
-To change the minimum RAM, use the `--min-ram` flag.
+To change the minimum RAM, use the ``--min-ram`` flag.
 
-To change the minimum number of CPU cores, use the `--min-cores` flag.
+To change the minimum number of CPU cores, use the ``--min-cores`` flag.
 
-To change the disk size, use the `--disk-size` flag.
+To change the disk size, use the ``--disk-size`` flag.
 
 Before you choose especially large or unusual values, be sure to check the
 available VM instance types and maximum disk size. On Google Cloud, the
@@ -262,13 +265,13 @@ Submitting a batch job
 
 Each of the examples above has demonstrated submitting a single task with
 a single set of variables, inputs, and outputs. If you have a batch of inputs
-and you want to run the same operation over them, `dsub` allows you
+and you want to run the same operation over them, ``dsub`` allows you
 to create a batch job.
 
-Instead of calling `dsub` repeatedly, you can create
+Instead of calling ``dsub`` repeatedly, you can create
 a tab-separated values (TSV) file containing the variables,
-inputs, and outputs for each task, and then call `dsub` once.
-The result will be a single `job-id` with multiple tasks. The tasks will
+inputs, and outputs for each task, and then call ``dsub`` once.
+The result will be a single ``job-id`` with multiple tasks. The tasks will
 be scheduled and run independently, but can be
 `monitored <#Viewing job status>`_ and `deleted <#Deleting a job>`_ as a group.
 
@@ -276,12 +279,12 @@ Tasks file format
 -----------------
 
 The first line of the TSV file specifies the names and types of the
-parameters. For example:
+parameters. For example::
 
     --env SAMPLE_ID<tab>--input VCF_FILE<tab>--output OUTPUT_PATH
 
 The first line also supports bare-word variables which are treated as
-the names of environment variables. This example is equivalent to the previous:
+the names of environment variables. This example is equivalent to the previous::
 
     SAMPLE_ID<tab>--input VCF_FILE<tab>--output OUTPUT_PATH
 
@@ -291,86 +294,85 @@ values for each task. Each line represents the values for a separate task.
 Tasks parameter
 ---------------
 
-Pass the TSV file to dsub using the `--tasks` parameter. This parameter
+Pass the TSV file to dsub using the ``--tasks`` parameter. This parameter
 accepts both the file path and optionally a range of tasks to process.
 
-For example, suppose `my-tasks.tsv` contains 101 lines: a one-line header and
-100 lines of parameters for tasks to run. Then:
+For example, suppose ``my-tasks.tsv`` contains 101 lines: a one-line header and
+100 lines of parameters for tasks to run. Then::
 
-```
-dsub ... --tasks ./my-tasks.tsv
-```
+    dsub ... --tasks ./my-tasks.tsv
 
-will create a job with 100 tasks, while:
+will create a job with 100 tasks, while::
 
-```
-dsub ... --tasks ./my-tasks.tsv 1-10
-```
+    dsub ... --tasks ./my-tasks.tsv 1-10
 
 will create a job with 10 tasks, one for each of lines 2 through 11.
 
 The task range values can take any of the following forms:
 
-*   `m` indicates to submit task `m` (line m+1)
-*   `m-` indicates to submit all tasks starting with task `m`
-*   `m-n` indicates to submit all tasks from `m` to `n` (inclusive).
+*  ``m`` indicates to submit task ``m`` (line m+1)
+*  ``m-`` indicates to submit all tasks starting with task ``m``
+*  ``m-n`` indicates to submit all tasks from ``m`` to ``n`` (inclusive).
 
-### Job control
+Job control
+===========
 
 It's possible to wait for a job to complete before starting another, see `job
 control with dsub <docs/job_control.md>`_.
 
-### Viewing job status
+Viewing job status
+------------------
 
-The `dstat` command displays the status of jobs:
+The ``dstat`` command displays the status of jobs::
 
     dstat --project my-cloud-project
 
-With no additional arguments, dstat will display a list of *running* jobs for
-the current `USER`.
+With no additional arguments, dstat will display a list of * running * jobs for
+the current ``USER``.
 
-To display the status of a specific job, use the `--jobs` flag:
+To display the status of a specific job, use the ``--jobs`` flag::
 
     dstat --project my-cloud-project --jobs job-id
 
-For a batch job, the output will list all *running* tasks.
+For a batch job, the output will list all * running * tasks.
 
 Each job submitted by dsub is given a set of metadata values that can be
 used for job identification and job control. The metadata associated with
 each job includes:
 
-*   `job-name`: defaults to the name of your script file or the first word of
-    your script command; it can be explicitly set with the `--name` parameter.
-*   `user-id`: the `USER` environment variable value.
-*   `job-id`: takes the form `job-name--userid--timestamp` where the `job-name`
-    is truncated at 10 characters and the `timestamp` is of the form
-    `YYMMDD-HHMMSS-XX`, unique to hundredths of a second.
-*   `task-id`: if the job is submitted with the `--tasks` parameter, each task
+*   ``job-name``: defaults to the name of your script file or the first word of
+    your script command; it can be explicitly set with the ``--name`` parameter.
+*   ``user-id``: the ``USER`` environment variable value.
+*   ``job-id``: takes the form ``job-name--userid--timestamp`` where the ``job-name``
+    is truncated at 10 characters and the ``timestamp`` is of the form
+    ``YYMMDD-HHMMSS-XX``, unique to hundredths of a second.
+*   ``task-id``: if the job is submitted with the ``--tasks`` parameter, each task
     gets a sequential value of the form "task-*n*" where *n* is 1-based.
 
 Metadata can be used to cancel a job or individual tasks within a batch job.
 
-### Deleting a job
+Deleting a job
+--------------
 
-The `ddel` command will delete running jobs.
+The ``ddel`` command will delete running jobs.
 
 By default, only jobs submitted by the current user will be deleted.
-Use the `--users` flag to specify other users, or `"*"` for all users.
+Use the ``--users`` flag to specify other users, or ``"*"`` for all users.
 
-To delete a running job:
+To delete a running job::
 
     ddel --project my-cloud-project --jobs job-id
 
 If the job is a batch job, all running tasks will be deleted.
 
-To delete specific tasks:
+To delete specific tasks::
 
     ddel \
         --project my-cloud-project \
         --jobs job-id \
         --tasks task-id1 task-id2
 
-To delete all running jobs for the current user:
+To delete all running jobs for the current user::
 
     ddel --project my-cloud-project --jobs "*"
 
