@@ -390,4 +390,4 @@ What next?
     * `Scripts, Commands, and Docker <docs/code.md>`_
     * `Input and Output File Handling <docs/input_output.md>`_
     * `Job Control <docs/job_control.md>`_
-  * `Checking Status and Troubleshooting Jobs <docs/troubleshooting.md>`_
+    * `Checking Status and Troubleshooting Jobs <docs/troubleshooting.md>`_
