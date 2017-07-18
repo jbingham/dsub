@@ -20,6 +20,7 @@ Follows the model of bsub, qsub, srun, etc.
 import argparse
 import collections
 import os
+import re
 import sys
 import time
 
@@ -226,7 +227,6 @@ def parse_arguments(prog, argv):
       '--name',
       help="""Name for pipeline. Defaults to the script name or
           first token of the --command if specified.""")
-  parser.add_argument('--table', help=argparse.SUPPRESS)
   parser.add_argument(
       '--tasks',
       nargs='*',
@@ -296,6 +296,12 @@ def parse_arguments(prog, argv):
       help="""Output path arguments to de-localize recursively from the script's
           execution environment""",
       metavar='KEY=REMOTE_PATH')
+  parser.add_argument(
+      '--vars-include-wildcards',
+      default=False,
+      action='store_true',
+      help="""Enable new behavior for --input parameters that include wildcard
+        patterns. This will become the default.""")
 
   # Add dsub job management arguments
   parser.add_argument(
@@ -333,15 +339,13 @@ def parse_arguments(prog, argv):
       type=int,
       help='Size (in GB) of data disk to attach for each job')
 
-  # Add provider-specific arguments
   parser.add_argument(
-      '--provider',
-      default='google',
-      choices=['local', 'google', 'test-fails'],
-      help="""Service to submit jobs to. Currently the only valid values are
-          "google" to submit to Google's Pipeline API, or "test-fails" for a
-          test provider that always fails.""",
-      metavar='PROVIDER')
+      '--logging',
+      help='Cloud Storage path to send logging output'
+      ' (either a folder, or file ending in ".log")')
+
+  # Add provider-specific arguments
+  provider_base.add_provider_argument(parser)
   google = parser.add_argument_group(
       title='google',
       description='Options for the Google provider (Pipelines API)')
@@ -349,8 +353,6 @@ def parse_arguments(prog, argv):
       '--project',
       default=None,
       help='Cloud project ID in which to run the pipeline')
-  google.add_argument(
-      '--logging', help='Cloud Storage path to send logging output')
   google.add_argument(
       '--boot-disk-size',
       default=10,
@@ -419,6 +421,10 @@ def get_job_metadata(args, script, provider):
                                                dsub_util.get_default_user())
 
   job_metadata['script'] = script
+
+  # vars_include_wildcards is around just for a short time.
+  # Putting it in the metadata allows for touching less code.
+  job_metadata['vars_include_wildcards'] = args.vars_include_wildcards
 
   return job_metadata
 
@@ -591,6 +597,27 @@ def _job_outputs_are_present(job_data):
   return True
 
 
+def _check_wildcard_inputs(vars_include_wildcards, all_task_data):
+  if vars_include_wildcards:
+    return
+
+  inputs = all_task_data[0]['inputs']
+  inputs_with_wildcards = [
+      var for var in inputs
+      if not var.recursive and '*' in os.path.basename(var.docker_path)
+  ]
+  if inputs_with_wildcards:
+    print 'WARNING: The behavior of docker environment variables for input'
+    print '         parameters with wildcard (*) values is changing.'
+    print '         Set --vars-include-wildcards to enable the new behavior so'
+    print '         you can change your code before it becomes the default.'
+    print '         The following input parameters include wildcards:'
+    print '\n'.join([
+        '           {0}={1}'.format(var.name, var.remote_uri)
+        for var in inputs_with_wildcards
+    ])
+
+
 def dsub_main(prog, argv):
   # Parse args and validate
   args = parse_arguments(prog, argv)
@@ -618,15 +645,6 @@ def run_main(args):
   if args.command and args.script:
     raise ValueError('Cannot supply both --command and a script name.')
 
-  if args.table:
-    print_error(
-        'The --table flag is deprecated. Use the --tasks argument instead.')
-
-    if args.tasks:
-      raise ValueError('Cannot specify both --table and --tasks.')
-
-    args.tasks = {'path': args.table}
-
   if (args.env or args.input or args.input_recursive or args.output or
       args.output_recursive) and args.tasks:
     raise ValueError('Cannot supply both command-line parameters '
@@ -641,8 +659,10 @@ def run_main(args):
     if args.name:
       command_name = args.name
     else:
-      command_name = args.command.split(' ', 1)[0]
-    script = job_util.Script(command_name, args.command)
+      command_name = _name_for_command(args.command)
+
+    # add the shebang line to ensure the script's run.
+    script = job_util.Script(command_name, '#!/bin/bash\n' + args.command)
   elif args.script:
     # Read the script file
     script_file = dsub_util.load_file(args.script)
@@ -663,12 +683,14 @@ def run_main(args):
   output_file_param_util = param_util.OutputFileParamUtil(
       DEFAULT_OUTPUT_LOCAL_PATH)
   if args.tasks:
-    all_job_data = param_util.tasks_file_to_job_data(
+    all_task_data = param_util.tasks_file_to_job_data(
         args.tasks, input_file_param_util, output_file_param_util)
   else:
-    all_job_data = param_util.args_to_job_data(
+    all_task_data = param_util.args_to_job_data(
         args.env, args.input, args.input_recursive, args.output,
         args.output_recursive, input_file_param_util, output_file_param_util)
+
+  _check_wildcard_inputs(args.vars_include_wildcards, all_task_data)
 
   if not args.dry_run:
     print 'Job: %s' % job_metadata['job-id']
@@ -690,23 +712,23 @@ def run_main(args):
 
   # If requested, skip running this job if its outputs already exist
   if args.skip and not args.dry_run:
-    if _job_outputs_are_present(all_job_data[0]):
+    if _job_outputs_are_present(all_task_data[0]):
       print 'Job output already present, skipping new job submission.'
       return {'job-id': NO_JOB}
 
   # Launch all the job tasks!
-  launched_job = provider.submit_job(job_resources, job_metadata, all_job_data)
+  launched_job = provider.submit_job(job_resources, job_metadata, all_task_data)
 
   if not args.dry_run:
     print 'Launched job-id: %s' % launched_job['job-id']
     if launched_job.get('task-id'):
       print '%s task(s)' % len(launched_job['task-id'])
     print 'To check the status, run:'
-    print '  dstat --project %s --jobs %s --status \'*\'' % (
-        args.project, launched_job['job-id'])
+    print '  dstat%s --jobs %s --status \'*\'' % (
+        provider_base.get_dstat_provider_args(args), launched_job['job-id'])
     print 'To cancel the job, run:'
-    print '  ddel --project %s --jobs %s' % (args.project,
-                                             launched_job['job-id'])
+    print '  ddel%s --jobs %s' % (provider_base.get_ddel_provider_args(args),
+                                  launched_job['job-id'])
 
   # Poll for job completion
   if args.wait:
@@ -720,6 +742,30 @@ def run_main(args):
       sys.exit(1)
 
   return launched_job
+
+
+def _name_for_command(command):
+  r"""Craft a simple command name from the command.
+
+  The best command strings for this are going to be those where a simple
+  command was given:
+
+  >>> _name_for_command('samtools index "${BAM}"')
+  'samtools'
+  >>> _name_for_command('/usr/bin/sort "${INFILE}" > "${OUTFILE}"')
+  'sort'
+
+  For commands like "export VAR=val\necho ${VAR}", the user may want to pass
+  --name to specify a more informative name.
+
+  Arguments:
+    command: the user-provided command
+  Returns:
+    a proposed name for the task.
+  """
+
+  # strip() to eliminate any leading whitespace from the token:
+  return os.path.basename(re.split(r'\s', command.strip())[0])
 
 if __name__ == '__main__':
   main(sys.argv[0], sys.argv[1:])

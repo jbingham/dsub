@@ -14,6 +14,7 @@
 """Unit tests for dsub.
 """
 
+import doctest
 import unittest
 from dsub.commands import dsub as dsub_command
 from dsub.providers import stub
@@ -245,6 +246,31 @@ class TestDominantTask(unittest.TestCase):
     }]
     ret = dsub_command.dominant_task_for_jobs(prov, ops)
     self.assertEqual(ret[0]['task-id'], 'task-3')
+
+
+class TestNameCommand(unittest.TestCase):
+
+  def test_name_command(self):
+    test_cases = {
+        # command, name
+        ('echo "hi"', 'echo'),
+        ('\necho "hi"', 'echo'),
+        ('\n  echo "hi"\n', 'echo'),
+        ('\r\n  DIR\r\n', 'DIR'),
+        ('samtools index "${BAM}"', 'samtools'),
+        ('  \n  /bin/true', 'true'),
+        ('/usr/bin/sort "${INFILE}" > "${OUTFILE}"', 'sort'),
+        ('export VAR=val\necho ${VAR}', 'export'),
+    }
+    for t in test_cases:
+      self.assertEqual(t[1], dsub_command._name_for_command(t[0]))
+
+
+class TestExamplesInDocstrings(unittest.TestCase):
+
+  def test_doctest(self):
+    result = doctest.testmod(dsub_command, report=True)
+    self.assertEqual(0, result.failed)
 
 
 if __name__ == '__main__':

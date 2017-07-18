@@ -1,6 +1,4 @@
-#!/bin/bash
-
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,18 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# test_setup_unit.sh
-#
-# Set up basic variables for unit tests
+FROM java:8
+MAINTAINER Matt Bookman <mbookman@google.com>
 
-source "${SCRIPT_DIR}/test_util.sh"
-source "${SCRIPT_DIR}/test_unit_util.sh"
-source "${SCRIPT_DIR}/test_setup.sh"
-
-readonly PROJECT_ID=fake-project
-readonly LOGGING=gs://bucket/path/logging
-readonly SCRIPT="${SCRIPT_DIR}/dummy.sh"
-
-readonly TEST_STDOUT=${TEST_TMP}/stdout.txt
-readonly TEST_STDERR=${TEST_TMP}/stderr.txt
-
+# Download FASTQC unzip it and link it to /usr/bin
+RUN wget http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && \
+  unzip fastqc_v0.11.5.zip && \
+  chmod +x FastQC/fastqc && \
+  cp -r FastQC /usr/share/ && \
+  ln -s /usr/share/FastQC/fastqc /usr/bin/

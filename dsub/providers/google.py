@@ -21,6 +21,7 @@ Google Genomics Pipelines and Operations APIs.
 # pylint: disable=g-tzinfo-datetime
 import collections
 from datetime import datetime
+import itertools
 import json
 import os
 import re
@@ -35,6 +36,7 @@ from apiclient import errors
 from apiclient.discovery import build
 from dateutil.tz import tzlocal
 
+from ..lib import providers_util
 from oauth2client.client import GoogleCredentials
 import pytz
 
@@ -89,6 +91,9 @@ DOCKER_COMMAND = textwrap.dedent("""\
   # Install gsutil if there are recursive copies to do
   {install_cloud_sdk}
 
+  # Set environment variables for inputs with wildcards
+  {export_inputs_with_wildcards}
+
   # Set environment variables for recursive input directories
   {export_input_dirs}
 
@@ -129,7 +134,7 @@ DOCKER_COMMAND = textwrap.dedent("""\
 INSTALL_CLOUD_SDK = textwrap.dedent("""\
   if ! type gsutil; then
     apt-get update
-    apt-get --yes install gcc python-dev python-setuptools ca-certificates
+    apt-get --yes install ca-certificates gcc gnupg2 python-dev python-setuptools
     easy_install -U pip
     pip install -U crcmod
 
@@ -174,9 +179,15 @@ _ZONES = [
     'asia-northeast1-c',
     'asia-southeast1-a',
     'asia-southeast1-b',
+    'australia-southeast1-a',
+    'australia-southeast1-b',
+    'australia-southeast1-c',
     'europe-west1-b',
     'europe-west1-c',
     'europe-west1-d',
+    'europe-west2-a',
+    'europe-west2-b',
+    'europe-west2-c',
     'us-central1-a',
     'us-central1-b',
     'us-central1-c',
@@ -189,6 +200,7 @@ _ZONES = [
     'us-east4-c',
     'us-west1-a',
     'us-west1-b',
+    'us-west1-c',
 ]
 
 
@@ -334,6 +346,24 @@ class _Pipelines(object):
   """Utilty methods for creating pipeline operations."""
 
   @classmethod
+  def _build_pipeline_input_file_param(cls, var_name, docker_path):
+    """Return a dict object representing a pipeline input argument."""
+
+    # If the filename contains a wildcard, then the target Docker path must
+    # be a directory in order to ensure consistency whether the source pattern
+    # contains 1 or multiple files.
+    #
+    # In that case, we set the docker_path to explicitly have a trailing slash
+    # (for the Pipelines API "gsutil cp" handling, and then override the
+    # associated var_name environment variable in the generated Docker command.
+
+    path, filename = os.path.split(docker_path)
+    if '*' in filename:
+      return cls._build_pipeline_file_param(var_name, path + '/')
+    else:
+      return cls._build_pipeline_file_param(var_name, docker_path)
+
+  @classmethod
   def _build_pipeline_file_param(cls, var_name, docker_path):
     """Return a dict object representing a pipeline input or output argument."""
     return {
@@ -345,7 +375,8 @@ class _Pipelines(object):
     }
 
   @classmethod
-  def _build_pipeline_docker_command(cls, script_name, inputs, outputs):
+  def _build_pipeline_docker_command(cls, script_name, inputs, outputs,
+                                     vars_include_wildcards):
     """Return a multi-line string containg the full pipeline docker command."""
 
     # We upload the user script as an environment argument
@@ -354,6 +385,7 @@ class _Pipelines(object):
     # The docker_command:
     # * writes the script body to a file
     # * installs gcloud if there are recursive copies to do
+    # * sets environment variables for inputs with wildcards
     # * sets environment variables for recursive input directories
     # * recursively copies input directories
     # * creates output directories
@@ -372,49 +404,18 @@ class _Pipelines(object):
     export_input_dirs = ''
     copy_input_dirs = ''
     if recursive_input_dirs:
-      export_input_dirs = '\n'.join([
-          'export {0}={1}/{2}'.format(var.name, DATA_MOUNT_POINT,
-                                      var.docker_path.rstrip('/'))
-          for var in recursive_input_dirs
-      ])
-
-      copy_input_dirs = '\n'.join([
-          textwrap.dedent("""
-          mkdir -p {1}/{2}
-          for ((i = 0; i < 3; i++)); do
-            if gsutil -m rsync -r {0} {1}/{2}; then
-              break
-            elif ((i == 2)); then
-              2>&1 echo "Recursive localization failed."
-              exit 1
-            fi
-          done
-          """).format(var.remote_uri, DATA_MOUNT_POINT, var.docker_path)
-          for var in recursive_input_dirs
-      ])
+      export_input_dirs = providers_util.build_recursive_localize_env(
+          DATA_MOUNT_POINT, inputs)
+      copy_input_dirs = providers_util.build_recursive_gcs_localize_command(
+          DATA_MOUNT_POINT, inputs)
 
     export_output_dirs = ''
     copy_output_dirs = ''
     if recursive_output_dirs:
-      export_output_dirs = '\n'.join([
-          'export {0}={1}/{2}'.format(var.name, DATA_MOUNT_POINT,
-                                      var.docker_path.rstrip('/'))
-          for var in recursive_output_dirs
-      ])
-
-      copy_output_dirs = '\n'.join([
-          textwrap.dedent("""
-          for ((i = 0; i < 3; i++)); do
-            if gsutil -m rsync -r {0}/{1} {2}; then
-              break
-            elif ((i == 2)); then
-              2>&1 echo "Recursive de-localization failed."
-              exit 1
-            fi
-          done
-          """).format(DATA_MOUNT_POINT, var.docker_path, var.remote_uri)
-          for var in recursive_output_dirs
-      ])
+      export_output_dirs = providers_util.build_recursive_gcs_delocalize_env(
+          DATA_MOUNT_POINT, outputs)
+      copy_output_dirs = providers_util.build_recursive_gcs_delocalize_command(
+          DATA_MOUNT_POINT, outputs)
 
     mkdirs = '\n'.join([
         'mkdir -p {0}/{1}'.format(DATA_MOUNT_POINT, var.docker_path if
@@ -423,10 +424,23 @@ class _Pipelines(object):
         for var in outputs
     ])
 
+    export_inputs_with_wildcards = ''
+    inputs_with_wildcards = [
+        var for var in inputs
+        if not var.recursive and '*' in os.path.basename(var.docker_path)
+    ]
+    if vars_include_wildcards:
+      export_inputs_with_wildcards = '\n'.join([
+          'export {0}="{1}/{2}"'.format(var.name, DATA_MOUNT_POINT,
+                                        var.docker_path)
+          for var in inputs_with_wildcards
+      ])
+
     return DOCKER_COMMAND.format(
         mk_runtime_dirs=MK_RUNTIME_DIRS_COMMAND,
         script_path='%s/%s' % (SCRIPT_DIR, script_name),
         install_cloud_sdk=install_cloud_sdk,
+        export_inputs_with_wildcards=export_inputs_with_wildcards,
         export_input_dirs=export_input_dirs,
         copy_input_dirs=copy_input_dirs,
         mk_output_dirs=mkdirs,
@@ -438,7 +452,8 @@ class _Pipelines(object):
   @classmethod
   def build_pipeline(cls, project, min_cores, min_ram, disk_size,
                      boot_disk_size, preemptible, image, zones, script_name,
-                     envs, inputs, outputs, pipeline_name):
+                     envs, inputs, outputs, pipeline_name,
+                     vars_include_wildcards):
     """Builds a pipeline configuration for execution.
 
     Args:
@@ -458,14 +473,17 @@ class _Pipelines(object):
       outputs: list of FileParam objects specifying output variables to set
         within each job.
       pipeline_name: string name of pipeline.
+      vars_include_wildcards: boolean flag indicating whether environment
+        variables for input parameters should include the wildcard (file)
+        portion of the path.
 
     Returns:
       A nested dictionary with one entry under the key emphemeralPipeline
       containing the pipeline configuration.
     """
     # Format the docker command
-    docker_command = cls._build_pipeline_docker_command(script_name, inputs,
-                                                        outputs)
+    docker_command = cls._build_pipeline_docker_command(
+        script_name, inputs, outputs, vars_include_wildcards)
 
     # Pipelines inputParameters can be both simple name/value pairs which get
     # set as environment variables, as well as input file paths which the
@@ -491,7 +509,7 @@ class _Pipelines(object):
     } for env in envs]
 
     input_files = [
-        cls._build_pipeline_file_param(var.name, var.docker_path)
+        cls._build_pipeline_input_file_param(var.name, var.docker_path)
         for var in inputs if not var.recursive
     ]
 
@@ -606,7 +624,12 @@ class _Operations(object):
   """Utilty methods for querying and canceling pipeline operations."""
 
   @staticmethod
-  def get_filter(project, status=None, user_id=None, job_id=None, task_id=None):
+  def get_filter(project,
+                 status=None,
+                 user_id=None,
+                 job_id=None,
+                 job_name=None,
+                 task_id=None):
     """Return a filter string for operations.list()."""
 
     ops_filter = []
@@ -618,6 +641,8 @@ class _Operations(object):
       ops_filter.append('labels.user-id = %s' % user_id)
     if job_id != '*':
       ops_filter.append('labels.job-id = %s' % job_id)
+    if job_name != '*':
+      ops_filter.append('labels.job-name = %s' % job_name)
     if task_id != '*':
       ops_filter.append('labels.task-id = %s' % task_id)
 
@@ -681,6 +706,34 @@ class _Operations(object):
                              operation['error']['message']))
 
   @classmethod
+  def _get_operation_input_field_values(cls, metadata, file_input):
+    """Returns a dictionary of envs or file inputs for an operation.
+
+    Args:
+      metadata: operation metadata field
+      file_input: True to return a dict of file inputs, False to return envs.
+
+    Returns:
+      A dictionary of input field name value pairs
+    """
+
+    # To determine input parameter type, we iterate through the
+    # pipeline inputParameters.
+    # The values come from the pipelineArgs inputs.
+    input_args = metadata['request']['ephemeralPipeline']['inputParameters']
+    vals_dict = metadata['request']['pipelineArgs']['inputs']
+
+    # Get the names for files or envs
+    names = [
+        arg['name'] for arg in input_args if ('localCopy' in arg) == file_input
+    ]
+
+    # Build the return dict
+    values = {name: vals_dict[name] for name in names if name in vals_dict}
+
+    return values
+
+  @classmethod
   def get_operation_field(cls, operation, field, default=None):
     """Returns a value from the operation for a specific set of field names.
 
@@ -710,8 +763,10 @@ class _Operations(object):
       value = metadata['labels'].get('user-id')
     elif field == 'job-status':
       value = metadata['job-status']
+    elif field == 'envs':
+      value = cls._get_operation_input_field_values(metadata, False)
     elif field == 'inputs':
-      value = metadata['request']['pipelineArgs']['inputs']
+      value = cls._get_operation_input_field_values(metadata, True)
     elif field == 'outputs':
       value = metadata['request']['pipelineArgs']['outputs']
     elif field == 'create-time':
@@ -728,7 +783,7 @@ class _Operations(object):
       status, last_update = cls.operation_status_message(operation)
       value = last_update
     else:
-      raise ValueError('Unsupported display field: %s' % field)
+      raise ValueError('Unsupported display field: "%s"' % field)
 
     return value if value else default
 
@@ -946,7 +1001,8 @@ class GoogleJobProvider(base.JobProvider):
         envs=job_data['envs'],
         inputs=job_data['inputs'],
         outputs=job_data['outputs'],
-        pipeline_name=job_metadata['pipeline-name'])
+        pipeline_name=job_metadata['pipeline-name'],
+        vars_include_wildcards=job_metadata['vars_include_wildcards'])
 
     # Build the pipelineArgs for this job.
     pipeline.update(
@@ -963,21 +1019,21 @@ class GoogleJobProvider(base.JobProvider):
 
     return self.get_task_field(operation, 'task-id')
 
-  def submit_job(self, job_resources, job_metadata, all_job_data):
+  def submit_job(self, job_resources, job_metadata, all_task_data):
     """Submit the job (or tasks) to be executed.
 
     Args:
       job_resources: resource parameters required by each job.
       job_metadata: job parameters such as job-id, user-id, script
-      all_job_data: list of job (or task) arguments
+      all_task_data: list of task arguments
 
     Returns:
-      A dictionary containing the 'job-id' and if there are tasks, a list
-      of the task ids under the key 'task-id'.
+      A dictionary containing the 'user-id', 'job-id', and 'task-id' list.
+      For jobs that are not task array jobs, the task-id list should be empty.
     """
     launched_tasks = []
     requests = []
-    for job_data in all_job_data:
+    for job_data in all_task_data:
       request = self._build_pipeline_request(job_resources, job_metadata,
                                              job_data)
 
@@ -992,32 +1048,36 @@ class GoogleJobProvider(base.JobProvider):
     if self._dry_run:
       print json.dumps(requests, indent=2, sort_keys=True)
 
-    launched_job = {
+    return {
         'job-id': job_metadata['job-id'],
         'user-id': job_metadata['user-id'],
         'task-id': launched_tasks
     }
 
-    return launched_job
-
   def lookup_job_tasks(self,
                        status_list,
                        user_list=None,
                        job_list=None,
+                       job_name_list=None,
                        task_list=None,
                        max_jobs=0):
     """Return a list of operations based on the input criteria.
 
     If any of the filters are empty or ["*"], then no filtering is performed on
-    that field.
+    that field. Filtering by both a job id list and job name list is
+    unsupported.
 
     Args:
       status_list: ['*'], or a list of job status strings to return. Valid
         status strings are 'RUNNING', 'SUCCESS', 'FAILURE', or 'CANCELED'.
       user_list: a list of ids for the user(s) who launched the job.
       job_list: a list of job ids to return.
+      job_name_list: a list of job names to return.
       task_list: a list of specific tasks within the specified job(s) to return.
       max_jobs: the maximum number of jobs to return or 0 for no limit.
+
+    Raises:
+      ValueError: if both a job id list and a job name list are provided
 
     Returns:
       A list of Genomics API Operations objects.
@@ -1029,37 +1089,37 @@ class GoogleJobProvider(base.JobProvider):
     # For now, do the most brain-dead thing and if we find a common use-case
     # that performs poorly, we can re-evaluate.
 
-    if not status_list:
-      status_list = ['*']
-    if not user_list:
-      user_list = ['*']
-    if not job_list:
-      job_list = ['*']
-    if not task_list:
-      task_list = ['*']
+    status_list = status_list if status_list else ['*']
+    user_list = user_list if user_list else ['*']
+    job_list = job_list if job_list else ['*']
+    job_name_list = job_name_list if job_name_list else ['*']
+    task_list = task_list if task_list else ['*']
+
+    if set(job_list) != set(['*']) and set(job_name_list) != set(['*']):
+      raise ValueError(
+          'Filtering by both job IDs and job names is not supported')
 
     tasks = []
-    for status in status_list:
-      for job_id in job_list:
-        for user_id in user_list:
-          for task_id in task_list:
-            ops_filter = _Operations.get_filter(
-                self._project,
-                status=status,
-                user_id=user_id,
-                job_id=job_id,
-                task_id=task_id)
+    for status, job_id, job_name, user_id, task_id in itertools.product(
+        status_list, job_list, job_name_list, user_list, task_list):
+      ops_filter = _Operations.get_filter(
+          self._project,
+          status=status,
+          user_id=user_id,
+          job_id=job_id,
+          job_name=job_name,
+          task_id=task_id)
 
-            ops = _Operations.list(self._service, ops_filter, max_jobs)
-            for o in ops:
-              o['metadata']['job-status'] = _Operations.operation_status(o)
+      ops = _Operations.list(self._service, ops_filter, max_jobs)
+      for o in ops:
+        o['metadata']['job-status'] = _Operations.operation_status(o)
 
-            if ops:
-              tasks.extend(ops)
+      if ops:
+        tasks.extend(ops)
 
-            if max_jobs and len(tasks) > max_jobs:
-              del tasks[max_jobs:]
-              return tasks
+      if max_jobs and len(tasks) > max_jobs:
+        del tasks[max_jobs:]
+        return tasks
 
     return tasks
 

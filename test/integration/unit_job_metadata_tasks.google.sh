@@ -17,7 +17,7 @@
 set -o errexit
 set -o nounset
 
-# unit_test_job_metadata.sh
+# unit_metadata_tasks.sh
 #
 # Simple unit tests to verify the labels that get set in the pipeline
 # for a tasks job, such as "job-name", "user-id", "job-id", and "task-id".
@@ -29,27 +29,24 @@ source "${SCRIPT_DIR}/test_setup_unit.sh"
 
 # Define a utility routine for running the label + tasks test
 
-function run_dsub() {
+function call_dsub() {
   local tasks="${1}"
 
-  "${DSUB}" \
-    --project "${PROJECT_ID}" \
-    --logging "${LOGGING}" \
-    --zones "${ZONE}" \
+  run_dsub \
     --script "${SCRIPT}" \
     --tasks "${tasks}" \
     --dry-run \
     1> "${TEST_STDOUT}" \
     2> "${TEST_STDERR}"
 }
-readonly -f run_dsub
+readonly -f call_dsub
 
 # Define tests
 
 function test_default_name() {
   local subtest="${FUNCNAME[0]}"
 
-  local tsv_file="${TEST_TEMP}/${subtest}.tsv"
+  local tsv_file="${TEST_TMP}/${subtest}.tsv"
 
   # Create a simple TSV file
   util::write_tsv_file "${tsv_file}" \
@@ -59,7 +56,7 @@ na12878
 na12879
 '
 
-  if run_dsub "${tsv_file}"; then
+  if call_dsub "${tsv_file}"; then
 
     # Check that the output contains expected labels
     #   "labels": {
@@ -89,7 +86,7 @@ readonly -f test_default_name
 # Run the tests
 trap "exit_handler" EXIT
 
-mkdir -p "${TEST_TEMP}"
+mkdir -p "${TEST_TMP}"
 
 echo
 test_default_name

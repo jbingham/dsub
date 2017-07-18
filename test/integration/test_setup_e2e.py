@@ -38,10 +38,12 @@ import os
 import subprocess
 import sys
 
+from dsub.commands import dsub as dsub_command
+
 import test_setup
 import test_util
 
-TEST_VARS = ("TEST_NAME", "TEST_DIR", "TEST_TEMP", "TASKS_FILE",
+TEST_VARS = ("TEST_NAME", "TEST_DIR", "TEST_TMP", "TASKS_FILE",
              "TASKS_FILE_TMPL",)
 TEST_E2E_VARS = ("PROJECT_ID", "DSUB_BUCKET", "LOGGING", "INPUTS", "OUTPUTS",
                  "DOCKER_INPUTS", "DOCKER_OUTPUTS",)
@@ -57,15 +59,14 @@ def _environ():
 
 
 # Copy test_setup variables
+DSUB_PROVIDER = test_setup.DSUB_PROVIDER
 TEST_NAME = test_setup.TEST_NAME
 TEST_DIR = test_setup.TEST_DIR
-TEST_TEMP = test_setup.TEST_TEMP
+TEST_TMP = test_setup.TEST_TMP
 TASKS_FILE = test_setup.TASKS_FILE
 TASKS_FILE_TMPL = test_setup.TASKS_FILE_TMPL
 
 print "Checking that required environment values are set:"
-
-DSUB_PROVIDER = os.getenv("DSUB_PROVIDER", "google")
 
 if "YOUR_PROJECT" in os.environ:
   PROJECT_ID = os.environ["YOUR_PROJECT"]
@@ -127,12 +128,58 @@ if not os.environ.get("CHECK_RESULTS_ONLY"):
   if test_util.gsutil_ls_check("%s/**" % TEST_REMOTE_ROOT):
     print >> sys.stderr, "Test files exist: %s" % TEST_REMOTE_ROOT
     print >> sys.stderr, "Remove contents:"
-    print >> sys.stderr, "  gsutil -m rm %s/**" % os.path.dirname(
-        TEST_REMOTE_ROOT)
+    print >> sys.stderr, "  gsutil -m rm %s/**" % TEST_REMOTE_ROOT
     sys.exit(1)
 
 if TASKS_FILE:
   # For a task file test, set up the task file from its template
   # This should really be a feature of dsub directly...
   print "Setting up task file %s" % TASKS_FILE
+  os.makedirs(os.path.dirname(TASKS_FILE))
   test_util.expand_tsv_fields(_environ(), TASKS_FILE_TMPL, TASKS_FILE)
+
+
+# Functions for launching dsub
+#
+# Tests should generally just call "run_dsub" which will then invoke
+# the provider-specific function.
+
+
+def run_dsub(dsub_args):
+  # Execute the appropriate dsub_<provider> function
+  return globals()["dsub_%s" % DSUB_PROVIDER](dsub_args)
+
+
+def dsub_google(dsub_args):
+  """Call dsub appending google-provider required arguments."""
+  # pyformat: disable
+  google_opt_args = [
+      ("BOOT_DISK_SIZE", "--boot-disk-size"),
+      ("DISK_SIZE", "--disk-size")
+  ]
+  # pyformat: enable
+
+  opt_args = []
+  for var in google_opt_args:
+    val = globals().get(var[0])
+    if val:
+      opt_args.append(var[1], val)
+
+  # pyformat: disable
+  return dsub_command.call([
+      "--provider", "google",
+      "--project", PROJECT_ID,
+      "--logging", LOGGING,
+      "--zones", "us-central1-*"
+      ] + opt_args + dsub_args)
+  # pyformat: enable
+
+
+def dsub_local(dsub_args):
+  """Call dsub appending local-provider required arguments."""
+
+  # pyformat: disable
+  return dsub_command.call([
+      "--provider", "local",
+      "--logging", LOGGING,
+      ] + dsub_args)

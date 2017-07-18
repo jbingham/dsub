@@ -75,13 +75,13 @@ class JobProvider(object):
     raise NotImplementedError()
 
   @abstractmethod
-  def submit_job(self, job_resources, job_metadata, task_parameters):
+  def submit_job(self, job_resources, job_metadata, all_task_data):
     """Submit the job to be executed.
 
     Args:
       job_resources: resource parameters required by each job.
       job_metadata: job parameters such as job-id, user-id, script.
-      task_parameters: list of parameters to launch each job task.
+      all_task_data: list of parameters to launch each job task.
 
     job_resources contains settings related to how many resources to give each
     task. Its fields include: min_cores, min_ram, disk_size, boot_disk_size,
@@ -94,8 +94,8 @@ class JobProvider(object):
     Each contains the following fields: 'envs', 'inputs', 'outputs'.
 
     Returns:
-      A dictionary containing the 'job-id' and if there are tasks, a list
-      of the task ids under the key 'task-id'.
+      A dictionary containing the 'user-id', 'job-id', and 'task-id' list.
+      For jobs that are not task array jobs, the task-id list should be empty.
     """
     raise NotImplementedError()
 
@@ -113,7 +113,9 @@ class JobProvider(object):
 
     Returns:
       (list of tasks canceled,
-       for each task that couldn't be canceled, the error message)
+       for each task that couldn't be canceled, the error message).
+
+      Only tasks that were running are included in the return value.
     """
     raise NotImplementedError()
 
@@ -122,23 +124,29 @@ class JobProvider(object):
                        status_list,
                        user_list=None,
                        job_list=None,
+                       job_name_list=None,
                        task_list=None,
                        max_jobs=0):
     """Return a list of tasks based on the search criteria.
 
     If any of the filters are empty or "[*]", then no filtering is performed on
-    that field.
+    that field. Filtering by both a job id list and job name list is
+    unsupported.
 
     Args:
       status_list: ['*'], or a list of job status strings to return. Valid
         status strings are 'RUNNING', 'SUCCESS', 'FAILURE', or 'CANCELED'.
       user_list: a list of ids for the user(s) who launched the job.
       job_list: a list of job ids to return.
+      job_name_list: a list of job names to return.
       task_list: a list of specific tasks within the specified job(s) to return.
       max_jobs: the maximum number of jobs to return or 0 for no limit.
 
     Returns:
       A list of provider-specific objects, each representing a submitted task.
+
+    Raises:
+      ValueError: if both a job id list and a job name list are provided
     """
     raise NotImplementedError()
 

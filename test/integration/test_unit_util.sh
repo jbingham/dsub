@@ -22,7 +22,7 @@ function exit_handler() {
 
   if [[ "${code}" -eq 0 ]]; then
     # Only clean-up the temp dir if all tests pass
-    rm -rf "${TEST_TEMP}"
+    rm -rf "${TEST_TMP}"
 
     echo
     echo "$(basename "${0}") exiting with SUCCESS"
@@ -129,6 +129,22 @@ function assert_err_contains() {
   fi
 }
 readonly -f assert_err_contains
+
+function assert_err_not_contains() {
+  local expected="${1}"
+
+  if grep --quiet --fixed-strings "${expected}" "${TEST_STDERR}"; then
+    2>&1 echo "Assert: stderr does contains unexpected output:"
+    2>&1 echo "UNEXPECTED:"
+    2>&1 echo "${expected}"
+    2>&1 echo "ACTUAL:"
+    2>&1 echo "$(<$"${TEST_STDERR}")"
+
+    exit 1
+  fi
+}
+readonly -f assert_err_not_contains
+
 
 function assert_output_empty() {
   [[ ! -s "${TEST_STDOUT}" ]] || "Assert: stdout is not empty"

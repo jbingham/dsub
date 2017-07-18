@@ -38,8 +38,6 @@ source "${SCRIPT_DIR}/test_setup.sh"
 
 echo "Checking that required environment values are set:"
 
-declare DSUB_PROVIDER=${DSUB_PROVIDER:-google}
-
 declare PROJECT_ID
 if [[ -n "${YOUR_PROJECT:-}" ]]; then
   PROJECT_ID="${YOUR_PROJECT}"
@@ -101,9 +99,10 @@ echo "Input path: ${INPUTS}"
 echo "Output path: ${OUTPUTS}"
 
 # For tests that exercise remote dsub parameters (like TSV file)
-readonly DSUB_PARAMS="gs://${DSUB_BUCKET}/dsub/sh/${TEST_NAME}/params"
+readonly DSUB_PARAMS="${TEST_REMOTE_ROOT}/params"
 
-if [[ "${CHECK_RESULTS_ONLY:-0}" -eq 0 ]]; then
+if [[ "${CHECK_RESULTS_ONLY:-0}" -eq 0 ]] && \
+   [[ "${ALLOW_DIRTY_TESTS:-0}" -eq 0 ]]; then
 
   echo "  Checking if remote test files already exists"
   if gsutil ls "${TEST_REMOTE_ROOT}/**" 2>/dev/null; then
@@ -119,36 +118,8 @@ if [[ -n "${TASKS_FILE:-}" ]]; then
   # For a task file test, set up the task file from its template
   # This should really be a feature of dsub directly...
   echo "Setting up task file ${TASKS_FILE}"
+  mkdir -p "$(dirname "${TASKS_FILE}")"
   cat "${TASKS_FILE_TMPL}" \
     | util::expand_tsv_fields \
     > "${TASKS_FILE}"
 fi
-
-# Functions for launching dsub
-#
-# Tests should generally just call "run_dsub" which will then invoke
-# the provider-specific function.
-
-function run_dsub() {
-  local provider=${DSUB_PROVIDER:-google}
-
-  dsub_"${provider}" "${@}"
-}
-
-function dsub_google() {
-  "${DSUB}" \
-    --provider google \
-    --project "${PROJECT_ID}" \
-    --logging "${LOGGING}" \
-    --zones "us-central1-*" \
-    "${DISK_SIZE:+--disk-size ${DISK_SIZE}}" \
-    "${BOOT_DISK_SIZE:+--boot-disk-size ${BOOT_DISK_SIZE}}" \
-    "${@}"
-}
-
-function dsub_local() {
-  "${DSUB}" \
-    --provider local \
-    --logging "${LOGGING}" \
-    "${@}"
-}

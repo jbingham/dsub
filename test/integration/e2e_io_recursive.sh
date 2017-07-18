@@ -19,8 +19,6 @@ set -o nounset
 
 # Test recursive copying features of dsub.
 #
-# This test use the default stock image (ubuntu:14.04).
-#
 # This test is designed to verify that:
 #  * gsutil can be installed automatically if not present in the image.
 #  * recursive inputs are copied from GCS to the VM recursively.
@@ -48,11 +46,11 @@ readonly SCRIPT_DIR="$(dirname "${0}")"
 
 # Do standard test setup
 source "${SCRIPT_DIR}/test_setup_e2e.sh"
-trap "util::exit_handler ${TEST_TEMP}" EXIT
+trap "util::exit_handler ${TEST_TMP}" EXIT
 
 readonly FILE_CONTENTS="Test file contents"
 
-readonly INPUT_ROOT="${TEST_TEMP}/inputs"
+readonly INPUT_ROOT="${TEST_TMP}/inputs"
 readonly INPUT_DEEP="${INPUT_ROOT}/deep"
 readonly INPUT_SHALLOW="${INPUT_ROOT}/shallow"
 
@@ -67,7 +65,7 @@ readonly DIR_LIST=(
 
 if [[ "${CHECK_RESULTS_ONLY:-0}" -eq 0 ]]; then
 
-  mkdir -p "${TEST_TEMP}"
+  mkdir -p "${TEST_TMP}"
 
   echo "Setting up pipeline input..."
 
